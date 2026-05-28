@@ -345,36 +345,56 @@ export async function GET(request: Request) {
       }
 
       // Step B: Query the official data.go.kr Open API
-      // Since Nominatim might return full names like "강남구", we encode it.
-      // We also query multiple pages or fetch up to 150 items to scan.
-      let queryUrl = `https://api.data.go.kr/openapi/tn_pubr_prkplce_info_api?serviceKey=${encodeURIComponent(apiKey)}&type=json&numOfRows=150`;
-      
-      if (district) {
-        // Clean district string to match data.go.kr values (e.g. "강남구" instead of "서울특별시 강남구" if Nominatim returns that)
-        const cleanDistrict = district.split(' ').pop() || '';
-        queryUrl += `&lnmadr=${encodeURIComponent(cleanDistrict)}`;
+      // First try district filter for precision; if empty, retry without filter.
+      const cleanDistrict = district ? (district.split(' ').pop() || '') : '';
+      const baseQueryUrl = `https://api.data.go.kr/openapi/tn_pubr_prkplce_info_api?serviceKey=${encodeURIComponent(apiKey)}&type=json&numOfRows=300`;
+
+      const queryUrls = cleanDistrict
+        ? [
+            `${baseQueryUrl}&lnmadr=${encodeURIComponent(cleanDistrict)}`,
+            baseQueryUrl
+          ]
+        : [baseQueryUrl];
+
+      let apiItems: any[] = [];
+
+      for (const queryUrl of queryUrls) {
+        const apiRes = await fetch(queryUrl, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' }
+        });
+
+        if (!apiRes.ok) {
+          throw new Error(`Data.go.kr API returned status ${apiRes.status}`);
+        }
+
+        const resText = await apiRes.text();
+        let resData;
+        try {
+          resData = JSON.parse(resText);
+        } catch {
+          throw new Error('Data.go.kr response is not valid JSON. Ensure your API Key is correctly authorized.');
+        }
+
+        // Data.go.kr payload shape varies by endpoint/options:
+        // - response.body.items (array)
+        // - response.body.items.item (array)
+        // - response.body.item (array)
+        const itemsNode = resData?.response?.body?.items ?? resData?.response?.body?.item;
+        const normalizedItems = Array.isArray(itemsNode)
+          ? itemsNode
+          : Array.isArray(itemsNode?.item)
+            ? itemsNode.item
+            : [];
+
+        if (normalizedItems.length > 0) {
+          apiItems = normalizedItems;
+          break;
+        }
       }
 
-      const apiRes = await fetch(queryUrl, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' }
-      });
-
-      if (!apiRes.ok) {
-        throw new Error(`Data.go.kr API returned status ${apiRes.status}`);
-      }
-
-      const resText = await apiRes.text();
-      let resData;
-      try {
-        resData = JSON.parse(resText);
-      } catch (parseErr) {
-        throw new Error('Data.go.kr response is not valid JSON. Ensure your API Key is correctly authorized.');
-      }
-
-      const items = resData?.response?.body?.items;
-      if (Array.isArray(items) && items.length > 0) {
-        candidateLots = items
+      if (apiItems.length > 0) {
+        candidateLots = apiItems
           .filter((item: any) => item.latitude && item.longitude)
           .map((item: any, idx: number) => {
             const basicTime = parseInt(item.basicTime || '0', 10);
