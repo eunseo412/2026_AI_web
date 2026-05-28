@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
 
 interface ParkingLot {
   id: string;
@@ -329,25 +331,44 @@ export async function GET(request: Request) {
   let apiUsed = false;
   let apiError: string | null = null;
 
-  // 1. If API Key is present, attempt dynamic query from data.go.kr Open API
-  if (apiKey) {
+  // 1. Attempt to load the pre-fetched complete national parking database (18,527 items)
+  // This bypasses the deactivated address-filter parameters on data.go.kr's backend,
+  // allowing us to query and filter all real public parking lots nationwide locally via coordinates!
+  try {
+    const jsonPath = path.join(process.cwd(), 'public', 'data', 'parking_lots.json');
+    if (fs.existsSync(jsonPath)) {
+      const fileContent = fs.readFileSync(jsonPath, 'utf8');
+      candidateLots = JSON.parse(fileContent);
+      apiUsed = true;
+      console.log(`⚡ [ParkingMate Cache] Successfully loaded ${candidateLots.length} nationwide parking lots from local storage.`);
+    }
+  } catch (err: any) {
+    console.error('Failed to load local parking cache, falling back to dynamic API:', err.message);
+    apiError = err.message;
+  }
+
+  // 2. If the local cache was not available but an API key is present, fallback to dynamic query from data.go.kr
+  if (candidateLots.length === 0 && apiKey) {
     try {
       let cleanDistrict = '';
       let cityProvince = '';
       let fullDistrict = '';
 
-      // Step A: Parse cityProvince, cleanDistrict and fullDistrict from search parameters (extremely high reliability)
+      // Step A: Parse cityProvince, cleanDistrict and fullDistrict from search parameters
       if (addressName) {
-        const parts = addressName.split(' ');
-        if (parts[0]) {
-          cityProvince = parts[0]; // e.g. "서울특별시" or "경기도"
-          if (parts[2] && (parts[2].endsWith('구') || parts[2].endsWith('군') || parts[2].endsWith('시'))) {
-            cleanDistrict = parts[2]; // e.g. "분당구"
-            fullDistrict = parts.slice(0, 3).join(' '); // e.g. "경기도 성남시 분당구"
-          } else if (parts[1] && (parts[1].endsWith('구') || parts[1].endsWith('군') || parts[1].endsWith('시'))) {
-            cleanDistrict = parts[1]; // e.g. "마포구"
-            fullDistrict = parts.slice(0, 2).join(' '); // e.g. "서울특별시 마포구"
-          }
+        const delimiter = addressName.includes(',') ? ',' : ' ';
+        const parts = addressName.split(delimiter).map(p => p.trim());
+        
+        const cityPart = parts.find(p => p.endsWith('시') || p.endsWith('도'));
+        if (cityPart) cityProvince = cityPart;
+
+        const districtPart = parts.find(p => p.endsWith('구') || p.endsWith('군'));
+        if (districtPart) cleanDistrict = districtPart;
+
+        if (cityProvince && cleanDistrict) {
+          fullDistrict = `${cityProvince} ${cleanDistrict}`;
+        } else if (cityProvince) {
+          fullDistrict = cityProvince;
         }
       }
 
@@ -373,34 +394,22 @@ export async function GET(request: Request) {
         }
       }
 
-      // Step C: Formulate the correct API key query parameter (prevent double % encoding)
       const finalServiceKey = apiKey.includes('%') ? apiKey : encodeURIComponent(apiKey);
-
-      // Step D: Query the official data.go.kr Open API via HTTP (HTTPS is highly unstable in data.go.kr)
-      // We set numOfRows to 1000 to maximize coverage in our local distance filter.
       const baseQueryUrl = `http://api.data.go.kr/openapi/tn_pubr_prkplce_info_api?serviceKey=${finalServiceKey}&type=json&numOfRows=1000`;
 
       const queryUrls: string[] = [];
-
-      // 1. Try fullDistrict first (e.g. "서울특별시 마포구") - most precise
       if (fullDistrict) {
         queryUrls.push(`${baseQueryUrl}&lnmadr=${encodeURIComponent(fullDistrict)}`);
         queryUrls.push(`${baseQueryUrl}&rdnmadr=${encodeURIComponent(fullDistrict)}`);
       }
-
-      // 2. Try cityProvince next (e.g. "서울특별시") - highly robust, covers the whole city
       if (cityProvince) {
         queryUrls.push(`${baseQueryUrl}&lnmadr=${encodeURIComponent(cityProvince)}`);
         queryUrls.push(`${baseQueryUrl}&rdnmadr=${encodeURIComponent(cityProvince)}`);
       }
-
-      // 3. Try cleanDistrict as fallback (e.g. "마포구")
       if (cleanDistrict) {
         queryUrls.push(`${baseQueryUrl}&lnmadr=${encodeURIComponent(cleanDistrict)}`);
         queryUrls.push(`${baseQueryUrl}&rdnmadr=${encodeURIComponent(cleanDistrict)}`);
       }
-
-      // 4. Ultimate fallback: fetch 1000 items from all across Korea and filter
       queryUrls.push(baseQueryUrl);
 
       let apiItems: any[] = [];
@@ -423,10 +432,6 @@ export async function GET(request: Request) {
           throw new Error('Data.go.kr response is not valid JSON. Ensure your API Key is correctly authorized.');
         }
 
-        // Data.go.kr payload shape varies by endpoint/options:
-        // - response.body.items (array)
-        // - response.body.items.item (array)
-        // - response.body.item (array)
         const itemsNode = resData?.response?.body?.items ?? resData?.response?.body?.item;
         let normalizedItems: any[] = [];
         
@@ -469,11 +474,11 @@ export async function GET(request: Request) {
               totalSpaces: parseInt(item.prkcmprt || '0', 10),
               operatingDays: item.feedingDay || '평일+토요일+공휴일',
               weekdayStart: item.weekdayOperOpenHhmm || '00:00',
-              weekdayEnd: item.weekdayOperColseHhmm || '23:59', // Typo Colse is official
+              weekdayEnd: item.weekdayOperColseHhmm || '23:59',
               satStart: item.satOperOpenHhmm || '00:00',
               satEnd: item.satOperCloseHhmm || '23:59',
               holidayStart: item.holidayOperOpenHhmm || '00:00',
-              holidayEnd: item.holidayCloseOpenHhmm || item.holidayCloseHhmm || '23:59', // Check potential typo variants
+              holidayEnd: item.holidayCloseOpenHhmm || item.holidayCloseHhmm || '23:59',
               feeType: item.chrgeInfo === '무료' ? '무료' : (item.chrgeInfo === '혼합' ? '혼합' : '유료'),
               basicTime,
               basicFee,
@@ -490,12 +495,9 @@ export async function GET(request: Request) {
           });
 
         apiUsed = true;
-      } else {
-        throw new Error('No items returned from Data.go.kr API for this region.');
       }
-
     } catch (err: any) {
-      console.error('Data.go.kr query failed, falling back to local REAL database:', err.message);
+      console.error('Dynamic fallback query failed:', err.message);
       apiError = err.message;
     }
   }
