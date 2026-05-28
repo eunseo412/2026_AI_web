@@ -54,7 +54,8 @@ export default async function ResultsPage({
           radius: radius.toString(),
           date,
           time,
-          duration: duration.toString()
+          duration: duration.toString(),
+          addressName: destinationName
         });
 
         const parkingRes = await fetch(`${baseUrl}/api/parking?${parkingParams.toString()}`, {

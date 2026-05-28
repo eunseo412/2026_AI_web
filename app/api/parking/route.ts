@@ -308,6 +308,7 @@ export async function GET(request: Request) {
   const dateStr = searchParams.get('date') || new Date().toISOString().split('T')[0];
   const timeStr = searchParams.get('time') || '12:00';
   const durationStr = searchParams.get('duration') || '180';
+  const addressName = searchParams.get('addressName') || '';
 
   if (!latStr || !lngStr) {
     return NextResponse.json({ error: 'Latitude (lat) and Longitude (lng) are required' }, { status: 400 });
@@ -319,7 +320,10 @@ export async function GET(request: Request) {
   const stayDuration = parseInt(durationStr, 10);
 
   const dayType = getKoreanDayOfWeek(dateStr);
-  const apiKey = process.env.DATA_GO_KR_API_KEY || '';
+  
+  // Clean apiKey of quotes and surrounding whitespace
+  const rawApiKey = process.env.DATA_GO_KR_API_KEY || '';
+  const apiKey = rawApiKey.replace(/^['"]|['"]$/g, '').trim();
 
   let candidateLots: ParkingLot[] = [];
   let apiUsed = false;
@@ -328,26 +332,45 @@ export async function GET(request: Request) {
   // 1. If API Key is present, attempt dynamic query from data.go.kr Open API
   if (apiKey) {
     try {
-      // Step A: Reverse geocode with OpenStreetMap to find the administrative district (borough)
-      const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${targetLat}&lon=${targetLng}&addressdetails=1`;
-      const revRes = await fetch(reverseUrl, {
-        headers: { 'User-Agent': 'ParkingMate/1.0 (contact: test@parkingmate.ai)' },
-        next: { revalidate: 86400 } // cache for 1 day
-      });
-      
-      let district = '';
-      if (revRes.ok) {
-        const revData = await revRes.json();
-        const addr = revData.address;
-        if (addr) {
-          district = addr.city_district || addr.borough || addr.suburb || addr.district || addr.city || '';
+      let cleanDistrict = '';
+
+      // Step A: Parse cleanDistrict from search parameters (very high reliability)
+      if (addressName) {
+        const parts = addressName.split(' ');
+        // E.g. "서울특별시 마포구 대흥동" -> parts[1] is "마포구"
+        // E.g. "경기도 성남시 분당구" -> parts[2] is "분당구"
+        if (parts[2] && (parts[2].endsWith('구') || parts[2].endsWith('군'))) {
+          cleanDistrict = parts[2];
+        } else if (parts[1] && (parts[1].endsWith('구') || parts[1].endsWith('군') || parts[1].endsWith('시'))) {
+          cleanDistrict = parts[1];
+        } else if (parts[0] && (parts[0].endsWith('시') || parts[0].endsWith('구'))) {
+          cleanDistrict = parts[0];
         }
       }
 
-      // Step B: Query the official data.go.kr Open API
-      // First try district filter for precision; if empty, retry without filter.
-      const cleanDistrict = district ? (district.split(' ').pop() || '') : '';
-      const baseQueryUrl = `https://api.data.go.kr/openapi/tn_pubr_prkplce_info_api?serviceKey=${encodeURIComponent(apiKey)}&type=json&numOfRows=300`;
+      // Step B: Fall back to reverse geocoding via OpenStreetMap if addressName is unavailable
+      if (!cleanDistrict) {
+        const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${targetLat}&lon=${targetLng}&addressdetails=1`;
+        const revRes = await fetch(reverseUrl, {
+          headers: { 'User-Agent': 'ParkingMate/1.0 (contact: test@parkingmate.ai)' },
+          next: { revalidate: 86400 } // cache for 1 day
+        });
+        
+        if (revRes.ok) {
+          const revData = await revRes.json();
+          const addr = revData.address;
+          if (addr) {
+            const district = addr.city_district || addr.borough || addr.suburb || addr.district || addr.city || '';
+            cleanDistrict = district ? (district.split(' ').pop() || '') : '';
+          }
+        }
+      }
+
+      // Step C: Formulate the correct API key query parameter (prevent double % encoding)
+      const finalServiceKey = apiKey.includes('%') ? apiKey : encodeURIComponent(apiKey);
+
+      // Step D: Query the official data.go.kr Open API via HTTP (HTTPS is highly unstable in data.go.kr)
+      const baseQueryUrl = `http://api.data.go.kr/openapi/tn_pubr_prkplce_info_api?serviceKey=${finalServiceKey}&type=json&numOfRows=300`;
 
       const queryUrls = cleanDistrict
         ? [
