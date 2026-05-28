@@ -428,11 +428,21 @@ export async function GET(request: Request) {
         // - response.body.items.item (array)
         // - response.body.item (array)
         const itemsNode = resData?.response?.body?.items ?? resData?.response?.body?.item;
-        const normalizedItems = Array.isArray(itemsNode)
-          ? itemsNode
-          : Array.isArray(itemsNode?.item)
-            ? itemsNode.item
-            : [];
+        let normalizedItems: any[] = [];
+        
+        if (itemsNode) {
+          if (Array.isArray(itemsNode)) {
+            normalizedItems = itemsNode;
+          } else if (itemsNode.item) {
+            if (Array.isArray(itemsNode.item)) {
+              normalizedItems = itemsNode.item;
+            } else if (typeof itemsNode.item === 'object') {
+              normalizedItems = [itemsNode.item];
+            }
+          } else if (typeof itemsNode === 'object') {
+            normalizedItems = [itemsNode];
+          }
+        }
 
         if (normalizedItems.length > 0) {
           apiItems = normalizedItems;
@@ -490,13 +500,34 @@ export async function GET(request: Request) {
     }
   }
 
-  // 2. Fall back to local REAL dataset if API is not configured or failed
-  if (!apiUsed) {
-    candidateLots = [...REAL_STATIC_PARKING_LOTS];
-  }
+  // 2. Combine the API results with our built-in high-quality local real database of real parking lots!
+  // This guarantees that major public parking lots in key hotspots are always displayed,
+  // preventing empty maps and providing a rich, high-density experience.
+  const mergedLotsMap = new Map<string, ParkingLot>();
+
+  // Add API results first
+  candidateLots.forEach(lot => {
+    mergedLotsMap.set(lot.name.trim(), lot);
+  });
+
+  // Always merge with local real parking lots that are within the search radius
+  REAL_STATIC_PARKING_LOTS.forEach(lot => {
+    const dist = getDistance(targetLat, targetLng, lot.lat, lot.lng);
+    if (dist <= searchRadius) {
+      // If the lot is not already returned by the API (checking by partial name match to be smart)
+      const isDuplicate = Array.from(mergedLotsMap.keys()).some(
+        apiName => apiName.includes(lot.name) || lot.name.includes(apiName)
+      );
+      if (!isDuplicate) {
+        mergedLotsMap.set(lot.name, lot);
+      }
+    }
+  });
+
+  const finalLots = Array.from(mergedLotsMap.values());
 
   // 3. Process candidates: compute distance and filter strictly within searchRadius
-  let filteredResults = candidateLots
+  let filteredResults = finalLots
     .map(lot => {
       const dist = getDistance(targetLat, targetLng, lot.lat, lot.lng);
 
