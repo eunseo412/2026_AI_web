@@ -333,23 +333,26 @@ export async function GET(request: Request) {
   if (apiKey) {
     try {
       let cleanDistrict = '';
+      let cityProvince = '';
+      let fullDistrict = '';
 
-      // Step A: Parse cleanDistrict from search parameters (very high reliability)
+      // Step A: Parse cityProvince, cleanDistrict and fullDistrict from search parameters (extremely high reliability)
       if (addressName) {
         const parts = addressName.split(' ');
-        // E.g. "서울특별시 마포구 대흥동" -> parts[1] is "마포구"
-        // E.g. "경기도 성남시 분당구" -> parts[2] is "분당구"
-        if (parts[2] && (parts[2].endsWith('구') || parts[2].endsWith('군'))) {
-          cleanDistrict = parts[2];
-        } else if (parts[1] && (parts[1].endsWith('구') || parts[1].endsWith('군') || parts[1].endsWith('시'))) {
-          cleanDistrict = parts[1];
-        } else if (parts[0] && (parts[0].endsWith('시') || parts[0].endsWith('구'))) {
-          cleanDistrict = parts[0];
+        if (parts[0]) {
+          cityProvince = parts[0]; // e.g. "서울특별시" or "경기도"
+          if (parts[2] && (parts[2].endsWith('구') || parts[2].endsWith('군') || parts[2].endsWith('시'))) {
+            cleanDistrict = parts[2]; // e.g. "분당구"
+            fullDistrict = parts.slice(0, 3).join(' '); // e.g. "경기도 성남시 분당구"
+          } else if (parts[1] && (parts[1].endsWith('구') || parts[1].endsWith('군') || parts[1].endsWith('시'))) {
+            cleanDistrict = parts[1]; // e.g. "마포구"
+            fullDistrict = parts.slice(0, 2).join(' '); // e.g. "서울특별시 마포구"
+          }
         }
       }
 
       // Step B: Fall back to reverse geocoding via OpenStreetMap if addressName is unavailable
-      if (!cleanDistrict) {
+      if (!cleanDistrict && !cityProvince) {
         const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${targetLat}&lon=${targetLng}&addressdetails=1`;
         const revRes = await fetch(reverseUrl, {
           headers: { 'User-Agent': 'ParkingMate/1.0 (contact: test@parkingmate.ai)' },
@@ -360,8 +363,12 @@ export async function GET(request: Request) {
           const revData = await revRes.json();
           const addr = revData.address;
           if (addr) {
-            const district = addr.city_district || addr.borough || addr.suburb || addr.district || addr.city || '';
+            cityProvince = addr.city || addr.province || addr.state || '';
+            const district = addr.city_district || addr.borough || addr.suburb || addr.district || '';
             cleanDistrict = district ? (district.split(' ').pop() || '') : '';
+            if (cityProvince && cleanDistrict) {
+              fullDistrict = `${cityProvince} ${cleanDistrict}`;
+            }
           }
         }
       }
@@ -370,14 +377,31 @@ export async function GET(request: Request) {
       const finalServiceKey = apiKey.includes('%') ? apiKey : encodeURIComponent(apiKey);
 
       // Step D: Query the official data.go.kr Open API via HTTP (HTTPS is highly unstable in data.go.kr)
-      const baseQueryUrl = `http://api.data.go.kr/openapi/tn_pubr_prkplce_info_api?serviceKey=${finalServiceKey}&type=json&numOfRows=300`;
+      // We set numOfRows to 1000 to maximize coverage in our local distance filter.
+      const baseQueryUrl = `http://api.data.go.kr/openapi/tn_pubr_prkplce_info_api?serviceKey=${finalServiceKey}&type=json&numOfRows=1000`;
 
-      const queryUrls = cleanDistrict
-        ? [
-            `${baseQueryUrl}&lnmadr=${encodeURIComponent(cleanDistrict)}`,
-            baseQueryUrl
-          ]
-        : [baseQueryUrl];
+      const queryUrls: string[] = [];
+
+      // 1. Try fullDistrict first (e.g. "서울특별시 마포구") - most precise
+      if (fullDistrict) {
+        queryUrls.push(`${baseQueryUrl}&lnmadr=${encodeURIComponent(fullDistrict)}`);
+        queryUrls.push(`${baseQueryUrl}&rdnmadr=${encodeURIComponent(fullDistrict)}`);
+      }
+
+      // 2. Try cityProvince next (e.g. "서울특별시") - highly robust, covers the whole city
+      if (cityProvince) {
+        queryUrls.push(`${baseQueryUrl}&lnmadr=${encodeURIComponent(cityProvince)}`);
+        queryUrls.push(`${baseQueryUrl}&rdnmadr=${encodeURIComponent(cityProvince)}`);
+      }
+
+      // 3. Try cleanDistrict as fallback (e.g. "마포구")
+      if (cleanDistrict) {
+        queryUrls.push(`${baseQueryUrl}&lnmadr=${encodeURIComponent(cleanDistrict)}`);
+        queryUrls.push(`${baseQueryUrl}&rdnmadr=${encodeURIComponent(cleanDistrict)}`);
+      }
+
+      // 4. Ultimate fallback: fetch 1000 items from all across Korea and filter
+      queryUrls.push(baseQueryUrl);
 
       let apiItems: any[] = [];
 
