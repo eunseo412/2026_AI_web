@@ -1,0 +1,403 @@
+.container {
+  display: flex;
+  height: calc(100vh - var(--header-height));
+  width: 100%;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 460px;
+  min-width: 400px;
+  height: 100%;
+  border-right: 1px solid var(--border);
+  background-color: var(--bg-card);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  z-index: 10;
+  transition: var(--transition-normal);
+}
+
+.mapContainer {
+  flex: 1;
+  height: 100%;
+  position: relative;
+  background-color: #e5e7eb;
+}
+
+/* Search Context & Parameters Header */
+.searchHeader {
+  padding: 24px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(to bottom, var(--bg-card), var(--bg-main));
+}
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 12px;
+  transition: var(--transition-fast);
+}
+
+.backBtn:hover {
+  transform: translateX(-3px);
+  color: var(--primary-hover);
+}
+
+.destinationName {
+  font-size: 1.25rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: var(--text-main);
+  letter-spacing: -0.5px;
+}
+
+.searchParamsSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.paramBadge {
+  background-color: var(--border);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* Filters & Sorting section */
+.filterSection {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background-color: var(--bg-card);
+}
+
+.sortingRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sectionLabel {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-main);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sortButtons {
+  display: flex;
+  gap: 6px;
+}
+
+.sortBtn {
+  background: var(--bg-main);
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  color: var(--text-muted);
+}
+
+.sortBtnActive {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+.filterChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filterChip {
+  background: transparent;
+  border: 1px solid var(--border);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  color: var(--text-muted);
+}
+
+.filterChipActive {
+  background-color: var(--primary-light);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* AI Recommendation Card */
+.aiRecommendationCard {
+  margin: 16px 24px;
+  padding: 20px;
+  border-radius: var(--radius-md);
+  border: 1.5px dashed var(--primary);
+  background: linear-gradient(135deg, var(--bg-success-light) 0%, var(--bg-info-light) 100%);
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.aiHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--primary);
+  margin-bottom: 12px;
+}
+
+.aiContent {
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--text-main);
+}
+
+.aiContent h1, .aiContent h2, .aiContent h3, .aiContent h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-top: 12px;
+  margin-bottom: 6px;
+  color: var(--primary);
+}
+
+.aiContent p {
+  margin-bottom: 8px;
+}
+
+.aiContent ul, .aiContent ol {
+  margin-left: 18px;
+  margin-bottom: 8px;
+}
+
+.aiContent li {
+  margin-bottom: 4px;
+}
+
+.aiLoading {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 0;
+}
+
+.shimmer {
+  background: linear-gradient(90deg, var(--border) 25%, var(--bg-main) 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: loadingShimmer 1.5s infinite;
+  height: 12px;
+  border-radius: 4px;
+}
+
+@keyframes loadingShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Parking Lot Card List */
+.listContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 24px 24px;
+  gap: 16px;
+}
+
+.parkingCard {
+  border: 1px solid var(--border);
+  background-color: var(--bg-card);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  cursor: pointer;
+  transition: var(--transition-normal);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.parkingCard:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.parkingCardActive {
+  border-color: var(--primary);
+  background-color: var(--primary-light);
+  box-shadow: var(--shadow-glow);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.cardTitle {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.cardBadges {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.badgePublic {
+  background-color: var(--bg-info-light);
+  color: var(--color-info);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.badgePrivate {
+  background-color: var(--bg-warning-light);
+  color: var(--color-warning);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.badgeOpen {
+  background-color: var(--bg-success-light);
+  color: var(--color-success);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.badgeClosed {
+  background-color: var(--bg-danger-light);
+  color: var(--color-danger);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.cardPriceSection {
+  text-align: right;
+}
+
+.cardPrice {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.cardPriceLabel {
+  font-size: 0.72rem;
+  color: var(--text-light);
+  margin-top: 2px;
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.cardInfoRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cardInfoIcon {
+  color: var(--text-light);
+}
+
+.cardFooter {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--text-light);
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.emptyStateTitle {
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+  color: var(--text-main);
+}
+
+/* Map Popups custom styles */
+.mapPopup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 220px;
+}
+
+.popupTitle {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-main);
+}
+
+.popupPrice {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.popupRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+@media (max-width: 1024px) {
+  .container {
+    flex-direction: column-reverse;
+  }
+  
+  .sidebar {
+    width: 100%;
+    height: 50%;
+  }
+  
+  .mapContainer {
+    height: 50%;
+  }
+}

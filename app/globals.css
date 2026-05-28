@@ -1,0 +1,257 @@
+@import "leaflet/dist/leaflet.css";
+
+:root {
+  /* Color Palette (Deep Blue/Teal & Steel Slate) */
+  --primary-hue: 222;
+  
+  --primary: hsl(var(--primary-hue), 89%, 56%);
+  --primary-hover: hsl(var(--primary-hue), 89%, 46%);
+  --primary-light: hsl(var(--primary-hue), 89%, 95%);
+  --primary-glow: rgba(37, 99, 235, 0.15);
+  
+  --secondary: hsl(173, 80%, 40%);
+  --secondary-hover: hsl(173, 80%, 32%);
+  --secondary-light: hsl(173, 80%, 95%);
+  
+  --bg-main: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-navbar: rgba(255, 255, 255, 0.8);
+  --bg-input: #ffffff;
+  
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --text-light: #94a3b8;
+  
+  --border: #e2e8f0;
+  --border-focus: hsl(var(--primary-hue), 89%, 75%);
+  
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.05), 0 2px 4px rgba(15, 23, 42, 0.02);
+  --shadow-lg: 0 20px 25px -5px rgba(15, 23, 42, 0.08), 0 10px 10px -5px rgba(15, 23, 42, 0.03);
+  --shadow-glow: 0 0 15px rgba(37, 99, 235, 0.2);
+  
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  
+  --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Status Colors */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+  
+  --bg-success-light: #ecfdf5;
+  --bg-warning-light: #fffbeb;
+  --bg-danger-light: #fef2f2;
+  --bg-info-light: #eff6ff;
+  
+  --header-height: 72px;
+}
+
+[data-theme="dark"] {
+  --bg-main: #090d16;
+  --bg-card: #111827;
+  --bg-navbar: rgba(9, 13, 22, 0.85);
+  --bg-input: #1f2937;
+  
+  --text-main: #f3f4f6;
+  --text-muted: #9ca3af;
+  --text-light: #6b7280;
+  
+  --border: #1f2937;
+  --border-focus: hsl(var(--primary-hue), 89%, 60%);
+  
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 20px rgba(37, 99, 235, 0.35);
+  
+  --primary-light: hsl(var(--primary-hue), 40%, 12%);
+  --secondary-light: hsl(173, 40%, 12%);
+  
+  --bg-success-light: rgba(16, 185, 129, 0.15);
+  --bg-warning-light: rgba(245, 158, 11, 0.15);
+  --bg-danger-light: rgba(239, 68, 68, 0.15);
+  --bg-info-light: rgba(59, 130, 246, 0.15);
+}
+
+/* Global Reset & Base */
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  scroll-behavior: smooth;
+  transition: background-color var(--transition-normal), color var(--transition-normal);
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  color: inherit;
+}
+
+/* Scrollbar Customization */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-main);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-light);
+}
+
+/* Glassmorphism utility */
+.glass {
+  background: var(--bg-navbar);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 10px rgba(37, 99, 235, 0.2); }
+  50% { box-shadow: 0 0 25px rgba(37, 99, 235, 0.4); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Leaflet Overrides for modern theme */
+.leaflet-container {
+  height: 100% !important;
+  width: 100% !important;
+  font-family: inherit;
+  background-color: var(--bg-main) !important;
+  border: 1px solid var(--border);
+}
+
+.leaflet-bar {
+  border: none !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+.leaflet-bar a {
+  background-color: var(--bg-card) !important;
+  color: var(--text-main) !important;
+  border-bottom: 1px solid var(--border) !important;
+  transition: var(--transition-fast) !important;
+}
+
+.leaflet-bar a:hover {
+  background-color: var(--primary-light) !important;
+  color: var(--primary) !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: var(--bg-card) !important;
+  color: var(--text-main) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-lg) !important;
+  padding: 4px;
+}
+
+.leaflet-popup-tip {
+  background: var(--bg-card) !important;
+}
+
+/* Helper styles for high premium layout */
+.section-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 24px;
+  width: 100%;
+}
+
+/* Custom Leaflet Pins */
+.pin-blue {
+  background-color: #2563eb;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 10px rgba(37,99,235,0.6);
+  position: relative;
+}
+.pin-blue::after {
+  content: '';
+  position: absolute;
+  top: -7px;
+  left: -7px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #2563eb;
+  animation: pulse-glow 2s infinite ease-out;
+  pointer-events: none;
+}
+
+.pin-red {
+  background-color: #ef4444;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 0 6px rgba(239,68,68,0.5);
+  transition: transform 0.2s ease;
+}
+
+.pin-red:hover {
+  transform: scale(1.2);
+}
+
+.pin-active {
+  background-color: #10b981;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 12px rgba(16,185,129,0.8);
+  transform: scale(1.15);
+  transition: all 0.2s ease;
+}
+
